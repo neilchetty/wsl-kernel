@@ -1,0 +1,49 @@
+name: Build
+
+on:
+  schedule: [cron: '0 0 * * 0']
+  workflow_dispatch:
+
+env:
+  GH_TOKEN: ${{ secrets.GIT_TOKEN }}
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+
+    name: Automatic Build
+    runs-on: ubuntu-latest
+    container:
+       image: fedora:latest
+
+    steps:
+    - name: Setup
+      run: |
+        sudo dnf groupinstall "Development tools" -y
+        sudo dnf install bison flex bc openssl-devel -y
+        sudo dnf install 'dnf-command(config-manager)' -y
+        sudo dnf config-manager --add-repo https://cli.github.com/packages/rpm/gh-cli.repo -y
+        sudo dnf install gh -y
+        ln -sf /usr/share/zoneinfo/Asia/Kolkata /etc/localtime
+        echo "date=$(/bin/date -u '+%d%m%Y%I%M')" >> $GITHUB_ENV
+        git config --global --add safe.directory /__w/wsl-kernel/wsl-kernel
+        git config --global user.name "neilchetty"
+        git config --global user.email "neilchetty4559@gmail.com"
+
+    - name: Checkout
+      uses: actions/checkout@v3
+      with:
+        fetch-depth: 1
+
+    - name: Build
+      run: |
+        export KBUILD_BUILD_USER="neil" && export KBUILD_BUILD_HOST="kernel-build"
+        make wsl_defconfig && make -j$(nproc --all)
+        echo "kversion=$(strings arch/x86_64/boot/bzImage | grep neil | grep gcc)" >> $GITHUB_ENV
+        mkdir -p releases && cp arch/x86_64/boot/bzImage releases/bzImage
+
+    - name: Release
+      run: |
+        gh release create ${{ env.date }} 'releases/bzImage#kernel' --notes "Version String: ${{ env.kversion }}" --generate-notes -t "Bluelight Kernel for WSL Release ${{ env.date }}"
