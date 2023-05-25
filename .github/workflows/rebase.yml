@@ -1,0 +1,36 @@
+name: Rebase
+
+on:
+  schedule: [cron: '0 0 * * *']
+  workflow_dispatch:
+
+env:
+  GH_TOKEN: ${{ secrets.GIT_TOKEN }}
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    name: Automatic Rebase
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout repo
+      uses: actions/checkout@v3
+      with:
+        fetch-depth: 0
+
+    - name: Fetch
+      run: |
+        git config --global user.name "neilchetty"
+        git config --global user.email "neilchetty4559@gmail.com"
+        git fetch https://github.com/torvalds/linux master
+
+    - name: Rebase
+      run: |
+        git rebase FETCH_HEAD
+
+    - name: Push
+      run: |
+        git push https://neilchetty:$GH_TOKEN@github.com/neilchetty/wsl-kernel -f
