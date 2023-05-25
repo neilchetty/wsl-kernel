@@ -1,0 +1,51 @@
+name: Rebase
+
+on:
+  schedule: [cron: '0 0 * * *']
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+
+    name: Automatic Rebase
+    runs-on: ubuntu-latest
+    container:
+       image: fedora:latest
+
+    steps:
+    - name: Setup
+      run: |
+        sudo dnf groupinstall "Development tools" -y
+        sudo dnf install bison flex bc openssl-devel -y
+        sudo dnf install 'dnf-command(config-manager)' -y
+        sudo dnf config-manager --add-repo https://cli.github.com/packages/rpm/gh-cli.repo -y
+        sudo dnf install gh -y
+        ln -sf /usr/share/zoneinfo/Asia/Kolkata /etc/localtime
+        echo "date=$(/bin/date -u '+%d%m%Y%I%M')" >> $GITHUB_ENV
+        git config --global --add safe.directory /__w/wsl-kernel/wsl-kernel
+        git config --global user.name "neilchetty"
+        git config --global user.email "neilchetty4559@gmail.com"
+
+    - name: Checkout
+      uses: actions/checkout@v3
+      with:
+        fetch-depth: 0
+
+    - name: Fetch And Rebase
+      run: |
+        git fetch https://github.com/torvalds/linux master
+        git rebase FETCH_HEAD
+
+    - name: Regenerate Config
+      run: |
+        export KBUILD_BUILD_USER="neil" && export KBUILD_BUILD_HOST="kernel-build"
+        make wsl_defconfig && make savedefconfig
+        cp defconfig arch/x86/configs/wsl_defconfig
+        git add . && git commit --amend --no-edit
+
+    - name: Push
+      run: |
+        git push https://github.com/neilchetty/wsl-kernel -f
