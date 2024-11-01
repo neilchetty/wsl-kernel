@@ -16,7 +16,7 @@ jobs:
     name: Automatic Build
     runs-on: ubuntu-latest
     container:
-       image: fedora:latest
+       image: fedora:40
 
     steps:
     - name: Setup
